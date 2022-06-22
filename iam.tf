@@ -186,22 +186,88 @@ resource "aws_iam_role_policy_attachment" "dead_letter" {
 # VPC
 ######
 
+data "aws_iam_policy_document" "vpc" {
+  count = local.create_role && var.attach_network_policy ? 1 : 0
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "ec2:CreateNetworkInterface",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DeleteNetworkInterface",
+      "ec2:AssignPrivateIpAddresses",
+      "ec2:UnassignPrivateIpAddresses",
+    ]
+
+    resources = [
+      "*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "vpc" {
+  count = local.create_role && var.attach_network_policy ? 1 : 0
+
+  name   = "${local.role_name}-vpc"
+  path   = var.policy_path
+  policy = data.aws_iam_policy_document.vpc[0].json
+  tags   = var.tags
+}
+
 resource "aws_iam_role_policy_attachment" "vpc" {
   count = local.create_role && var.attach_network_policy ? 1 : 0
 
   role       = aws_iam_role.lambda[0].name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaENIManagementAccess"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 #####################
 # Tracing with X-Ray
 #####################
 
+data "aws_iam_policy_document" "tracing" {
+  count = local.create_role && var.attach_tracing_policy ? 1 : 0
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "xray:PutTraceSegments",
+      "xray:PutTelemetryRecords",
+      "xray:GetSamplingRules",
+      "xray:GetSamplingTargets",
+      "xray:GetSamplingStatisticSummaries",
+    ]
+
+    resources = [
+      "*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "tracing" {
+  count = local.create_role && var.attach_tracing_policy ? 1 : 0
+
+  name   = "${local.role_name}-tracing"
+  path   = var.policy_path
+  policy = data.aws_iam_policy_document.tracing[0].json
+  tags   = var.tags
+}
+
 resource "aws_iam_role_policy_attachment" "tracing" {
   count = local.create_role && var.attach_tracing_policy ? 1 : 0
 
   role       = aws_iam_role.lambda[0].name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AWSXRayDaemonWriteAccess"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 ###############################
