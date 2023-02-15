@@ -211,6 +211,9 @@ resource "aws_lambda_function_event_invoke_config" "this" {
   maximum_event_age_in_seconds = var.maximum_event_age_in_seconds
   maximum_retry_attempts       = var.maximum_retry_attempts
 
+  depends_on = [
+    aws_lambda_function_event_invoke_config.this
+  ]
   dynamic "destination_config" {
     for_each = var.destination_on_failure != null || var.destination_on_success != null ? [true] : []
     content {

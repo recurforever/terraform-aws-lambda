@@ -187,11 +187,24 @@ resource "aws_iam_role_policy_attachment" "dead_letter" {
 # VPC
 ######
 
-# Copying AWS managed policy to be able to attach the same policy with multiple roles without overwrites by another function
-data "aws_iam_policy" "vpc" {
+data "aws_iam_policy_document" "vpc" {
   count = local.create_role && var.attach_network_policy ? 1 : 0
 
-  arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaENIManagementAccess"
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "ec2:CreateNetworkInterface",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DeleteNetworkInterface",
+      "ec2:AssignPrivateIpAddresses",
+      "ec2:UnassignPrivateIpAddresses",
+    ]
+
+    resources = [
+      "*",
+    ]
+  }
 }
 
 resource "aws_iam_policy" "vpc" {
@@ -199,7 +212,7 @@ resource "aws_iam_policy" "vpc" {
 
   name   = "${local.policy_name}-vpc"
   path   = var.policy_path
-  policy = data.aws_iam_policy.vpc[0].policy
+  policy = data.aws_iam_policy_document.vpc[0].json
   tags   = var.tags
 }
 
@@ -207,18 +220,35 @@ resource "aws_iam_role_policy_attachment" "vpc" {
   count = local.create_role && var.attach_network_policy ? 1 : 0
 
   role       = aws_iam_role.lambda[0].name
-  policy_arn = aws_iam_policy.vpc[0].arn
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaENIManagementAccess"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 #####################
 # Tracing with X-Ray
 #####################
 
-# Copying AWS managed policy to be able to attach the same policy with multiple roles without overwrites by another function
-data "aws_iam_policy" "tracing" {
+data "aws_iam_policy_document" "tracing" {
   count = local.create_role && var.attach_tracing_policy ? 1 : 0
 
-  arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AWSXRayDaemonWriteAccess"
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "xray:PutTraceSegments",
+      "xray:PutTelemetryRecords",
+      "xray:GetSamplingRules",
+      "xray:GetSamplingTargets",
+      "xray:GetSamplingStatisticSummaries",
+    ]
+
+    resources = [
+      "*",
+    ]
+  }
 }
 
 resource "aws_iam_policy" "tracing" {
@@ -226,7 +256,7 @@ resource "aws_iam_policy" "tracing" {
 
   name   = "${local.policy_name}-tracing"
   path   = var.policy_path
-  policy = data.aws_iam_policy.tracing[0].policy
+  policy = data.aws_iam_policy_document.tracing[0].json
   tags   = var.tags
 }
 
@@ -234,7 +264,11 @@ resource "aws_iam_role_policy_attachment" "tracing" {
   count = local.create_role && var.attach_tracing_policy ? 1 : 0
 
   role       = aws_iam_role.lambda[0].name
-  policy_arn = aws_iam_policy.tracing[0].arn
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AWSXRayDaemonWriteAccess"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 ###############################
